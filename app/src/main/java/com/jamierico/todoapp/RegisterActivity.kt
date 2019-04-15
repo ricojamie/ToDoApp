@@ -7,16 +7,23 @@ import android.util.Log
 import android.widget.Toast
 import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import kotlinx.android.synthetic.main.activity_register.*
 
 class RegisterActivity : AppCompatActivity() {
-
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_register)
 
         FirebaseApp.initializeApp(this)
+
+
+        val intent = Intent(this, MainActivity::class.java)
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user != null) {
+            startActivity(intent)
+        }
 
         register_button.setOnClickListener {
            performRegister()
