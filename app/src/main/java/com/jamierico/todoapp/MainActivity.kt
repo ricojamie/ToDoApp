@@ -27,25 +27,19 @@ import com.xwray.groupie.Item
 import com.xwray.groupie.ViewHolder
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.android.synthetic.main.dialog_comment.*
+import kotlinx.android.synthetic.main.todo_row.*
 import kotlinx.android.synthetic.main.todo_row.view.*
 import java.lang.IllegalArgumentException
 import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
-
-
     val db = FirebaseFirestore.getInstance()
     val user = FirebaseAuth.getInstance().currentUser?.uid
-
     var selectedPriority = "None"
-
-    var dueDate = " "
-
-
-//    var comment = ""
-//    var commentText = findViewById(R.id.comment_edittext) as EditText
-
+    var due = ""
+    var priorityInt: Int = 1
+    var isComplete: Boolean = false
 
 
     @SuppressLint("RestrictedApi")
@@ -54,15 +48,20 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val adapater = GroupAdapter<ViewHolder>()
-//        adapater.add(TodoItem())
-//        adapater.add(TodoItem())
         todo_list_view.adapter = adapater
 
-        getTodos()
+        //Load all todos
+        getActiveTodos()
+        //getTodos()
 
         //Set To-Do Priority
         priority_button.setOnClickListener {
             setPriority()
+        }
+
+        //Mark as complete
+        checkBox.setOnClickListener {
+//            markAsComplete()
         }
 
         //Add Comment to To-Do
@@ -77,15 +76,20 @@ class MainActivity : AppCompatActivity() {
         //Add To-Do to Firebase
         add_button.setOnClickListener {
 
-            Toast.makeText(this, "You selected $selectedPriority and Due date is: $dueDate", Toast.LENGTH_SHORT).show()
+            if (add_new_task_edittext.text.isBlank())
+            {
+                Toast.makeText(this, "Please enter a To Do item", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "You selected $selectedPriority and Due date is: $due $priorityInt", Toast.LENGTH_SHORT).show()
 
-            Toast.makeText(this, "You selected ${selectedPriority}", Toast.LENGTH_SHORT).show()
+                priority_button.setBackgroundColor(getColor(R.color.colorPrimaryDark))
 
-            selectedPriority = "None"
-            priority_button.setBackgroundColor(getColor(R.color.colorPrimaryDark))
+                addTodo()
+                due = ""
+                selectedPriority = "None"
+                add_new_task_edittext.setText("")
+            }
         }
-
-
     }
 
 //        comment_button.setOnClickListener {
@@ -93,70 +97,80 @@ class MainActivity : AppCompatActivity() {
 //        }
 
 
+    //Get all Todos from database
     private fun getTodos() {
-          val adapter = GroupAdapter<ViewHolder>()
-//        val docRef = db.collection("users").document(user.toString()).collection("todos")
-//        docRef.get().addOnSuccessListener { documentSnapshot ->
-//            val todo = documentSnapshot.toObjects(TodoData::class.java)
-//            adapter.add(TodoItem(TodoData()))
-//            todo_list_view.adapter = adapter
-//            Log.d("Test", "${}")
-//        }
-      db.collection("users").document(user.toString()).collection("todos")
-           .get()
-          .addOnSuccessListener { result ->
-               for(document in result) {
-                   val todo = document.toObject(TodoData::class.java)
-                       adapter.add(TodoItem(todo))
-                  Log.d("Test", "${document.id} => ${document.data}")
+        val adapter = GroupAdapter<ViewHolder>()
+        db.collection("users").document(user.toString()).collection("todos")
+            .get()
+            .addOnSuccessListener { result ->
+                for (document in result) {
+                    val todo = document.toObject(TodoData::class.java)
+                    adapter.add(TodoItem(todo))
+                    todo_list_view.adapter = adapter
+                }
+            }
+            .addOnFailureListener {
+                Log.d("Test", "Error getting documents: ")
+            }
+    }
+
+    private fun getActiveTodos() {
+        val adapter = GroupAdapter<ViewHolder>()
+        val dbRef = db.collection("users").document(user.toString()).collection("todos")
+            dbRef.whereEqualTo("isComplete", false)
+            .get()
+            .addOnSuccessListener { result ->
+                for (document in result) {
+                    val todo = document.toObject(TodoData::class.java)
+                    adapter.add(TodoItem(todo))
+                    todo_list_view.adapter = adapter
+                    Log.d("TodoITEM", "You have ${todo.item} with ${todo.due}")
+                }
+            }
+            .addOnFailureListener {
+                Log.d("Test", "Error getting documents: ")
+            }
+    }
+
+    //Mark to do complete
+//    private fun markAsComplete() {
+//        val dbRef = db.collection("users").document(user.toString()).collection("todos").document().id
+//        Toast.makeText(this, "You chose $dbRef", Toast.LENGTH_SHORT).show()
+//
+//    }
 
 
-//                  val stuff = document.get("item")
-//                   val todoData = document.toObject(TodoData::class.java)
-//                  Log.d("Test", "You got ${stuff}")
-                  todo_list_view.adapter = adapter
-
-
-              }
-
-          }
-
-          .addOnFailureListener{
-              Log.d("Test", "Error getting documents: ")
-           }
-
-
-   }
-
-
-    class TodoItem(val todo: TodoData): Item<ViewHolder>() {
+    //Set the To-Dos into the RecyclerView
+    class TodoItem(val todo: TodoData) : Item<ViewHolder>() {
         override fun bind(viewHolder: ViewHolder, position: Int) {
             //Will be called in our list for each user
             viewHolder.itemView.todo_item.text = todo.item.toString()
-            Log.d("Test", "LOOK AT THIS ${todo.item}")
+            viewHolder.itemView.todo_date.text = todo.due.toString()
+            Log.d("TodoITEM", "You have ${todo.item} with ${todo.priority}")
         }
+
         override fun getLayout(): Int {
             return R.layout.todo_row
         }
 
     }
 
-
     //Set Due Date Function
     private fun setDueDate() {
         val now = Calendar.getInstance()
-        val datePicker = DatePickerDialog(this, DatePickerDialog.OnDateSetListener { view, year, month, dayOfMonth ->
-            Toast.makeText(this, "year $year month: $month Day: $dayOfMonth", Toast.LENGTH_LONG).show()
-            dueDate = "$year-$month-$dayOfMonth"
-        },
+        val datePicker = DatePickerDialog(
+            this, DatePickerDialog.OnDateSetListener { view, year, month, dayOfMonth ->
+                Toast.makeText(this, "year $year month: $month Day: $dayOfMonth", Toast.LENGTH_LONG).show()
+                due = "$month-$dayOfMonth-$year"
+            },
             now.get(Calendar.YEAR), now.get(Calendar.MONTH), now.get(Calendar.DAY_OF_MONTH)
-            )
-            datePicker.show()
+        )
+        datePicker.show()
     }
 
 
     //Set Priority Function
-    private fun setPriority(){
+    private fun setPriority() {
         val priorities = arrayOf("High", "Medium", "Low", "None")
 
         val builder = AlertDialog.Builder(this@MainActivity)
@@ -165,6 +179,13 @@ class MainActivity : AppCompatActivity() {
         builder.setItems(priorities) { _, which ->
             selectedPriority = priorities[which]
 
+            when {
+                selectedPriority === "High" -> priorityInt = 4
+                selectedPriority === "Medium" -> priorityInt = 3
+                selectedPriority === "Low" -> priorityInt = 2
+                selectedPriority === "None" -> priorityInt = 1
+            }
+
             try {
                 when {
                     selectedPriority === "High" -> priority_button.setBackgroundColor(Color.RED)
@@ -172,7 +193,7 @@ class MainActivity : AppCompatActivity() {
                     selectedPriority === "Low" -> priority_button.setBackgroundColor(Color.GREEN)
                     selectedPriority === "None" -> priority_button.setBackgroundColor(getColor(R.color.colorPrimaryDark))
                 }
-            }catch (e:IllegalArgumentException) {
+            } catch (e: IllegalArgumentException) {
                 Toast.makeText(this, "You selected ${selectedPriority.toString()}", Toast.LENGTH_SHORT).show()
             }
         }
@@ -206,31 +227,35 @@ class MainActivity : AppCompatActivity() {
     //DEPRECATED FOR NOW
     //Handle Keyboard on Focus
     fun showKeyboard(context: Context) {
-         val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-         imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY)
-     }
+        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY)
+    }
 
     private fun addTodo() {
-//        val item = todo_item_edittext.text.toString()
-//        val list = todo_list_edittext.text.toString()
-//        val severity = todo_severity_edittext.text.toString()
-//        val tag = todo_tag_edittext.text.toString()
-//
-//        val todo = HashMap<String, Any>()
-//        todo["item"] = item
-//        todo["list"] = list
-//        todo["severity"] = severity
-//        todo["tag"] = tag
-//
-//        db.collection("users").document(user.toString()).collection("todos")
-//            .add(todo)
-//            .addOnSuccessListener { documentReference ->
-//                Log.d("Todo", "DocumentSnapshot added with ID")
-//            }
-//            .addOnFailureListener { e ->
-//                Log.d("Todo", "It failed")
-//            }
+        val item = add_new_task_edittext.text.toString()
+        val list = "Testing"
+        val priority = priorityInt
+        val tag = "Test Tag"
+        isComplete = false
+        val date = due
 
+        val todo = HashMap<String, Any>()
+        todo["item"] = item
+        todo["list"] = list
+        todo["priority"] = priority
+        todo["tag"] = tag
+        todo["isComplete"] = false
+        todo["due"] = date
 
+        db.collection("users").document(user.toString()).collection("todos")
+            .add(todo)
+            .addOnSuccessListener { documentReference ->
+                Log.d("Todo", "DocumentSnapshot added with ID")
+            }
+            .addOnFailureListener { e ->
+                Log.d("Todo", "It failed")
+            }
+
+        getTodos()
     }
 }

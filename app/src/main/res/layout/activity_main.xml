@@ -47,7 +47,7 @@
                 app:layout_constraintBottom_toTopOf="@+id/date_picker_button" app:layout_constraintStart_toStartOf="parent"
                 android:layout_marginStart="5dp" android:layout_marginBottom="4dp" android:hint="Enter To Do"
                 android:textColor="@color/colorGray"
-                android:textColorHint="@color/colorGray"
+                android:textColorHint="@color/hintTextColor"
                 android:layout_marginEnd="8dp" app:layout_constraintEnd_toStartOf="@+id/add_button"
                 app:layout_constraintHorizontal_bias="0.019"/>
         <ImageButton
